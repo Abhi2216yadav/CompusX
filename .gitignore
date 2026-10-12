@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.tsbuildinfo
+
+# firebase
+.firebase
+firebase-debug.log*
+ui-debug.log*
+
+# smoke test bundle
+dist-smoke/
+# firestore seed bundle
+dist-seed/
+.firebaserc
+# service account keys must never be committed
+service-account*.json
+*-firebase-adminsdk-*.json

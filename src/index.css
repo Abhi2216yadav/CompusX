@@ -1,0 +1,284 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode -------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CampusX design tokens
+   Semantic tokens are declared with `@theme inline` so that generated
+   utilities reference the CSS variables directly and therefore react to
+   light / dark mode changes.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --cx-bg: #f5f6fb;
+  --cx-bg-pattern: #eceefa;
+  --cx-overlay: rgb(14 21 38 / 0.55);
+  --cx-surface: #ffffff;
+  --cx-surface-2: #f3f5fb;
+  --cx-surface-3: #eaeef8;
+  --cx-border: #e3e7f2;
+  --cx-border-strong: #cdd4e5;
+  --cx-ink: #0e1526;
+  --cx-ink-2: #35405a;
+  --cx-muted: #66718c;
+  --cx-brand: #4f46e5;
+  --cx-brand-hover: #4338ca;
+  --cx-brand-soft: #eef0ff;
+  --cx-brand-ring: #c7cbfb;
+  --cx-accent: #7c3aed;
+  --cx-accent-soft: #f3eeff;
+  --cx-success: #0f9d58;
+  --cx-success-soft: #e6f6ee;
+  --cx-warn: #b45309;
+  --cx-warn-soft: #fdf3e3;
+  --cx-danger: #dc2626;
+  --cx-danger-soft: #fdecec;
+  --cx-info: #0369a1;
+  --cx-info-soft: #e6f3fb;
+  --cx-gold: #d4a017;
+  --cx-shadow-sm: 0 1px 2px rgb(14 21 38 / 0.06), 0 1px 3px rgb(14 21 38 / 0.04);
+  --cx-shadow: 0 2px 4px rgb(14 21 38 / 0.04), 0 8px 24px rgb(14 21 38 / 0.06);
+  --cx-shadow-lg: 0 12px 48px rgb(14 21 38 / 0.12);
+  --cx-ring: 0 0 0 3px rgb(99 102 241 / 0.35);
+}
+
+.dark {
+  --cx-bg: #070a12;
+  --cx-bg-pattern: #0b1120;
+  --cx-overlay: rgb(2 4 10 / 0.7);
+  --cx-surface: #0f1524;
+  --cx-surface-2: #161e31;
+  --cx-surface-3: #1e273e;
+  --cx-border: #232d45;
+  --cx-border-strong: #33405e;
+  --cx-ink: #eaeefa;
+  --cx-ink-2: #c3cbe0;
+  --cx-muted: #8b96af;
+  --cx-brand: #8187ff;
+  --cx-brand-hover: #99a0ff;
+  --cx-brand-soft: #1a2040;
+  --cx-brand-ring: #3b4290;
+  --cx-accent: #a78bfa;
+  --cx-accent-soft: #1e1738;
+  --cx-success: #34d399;
+  --cx-success-soft: #0d2a22;
+  --cx-warn: #fbbf24;
+  --cx-warn-soft: #2d2410;
+  --cx-danger: #f87171;
+  --cx-danger-soft: #2d1416;
+  --cx-info: #38bdf8;
+  --cx-info-soft: #0c2434;
+  --cx-gold: #fbbf24;
+  --cx-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --cx-shadow: 0 2px 4px rgb(0 0 0 / 0.3), 0 10px 30px rgb(0 0 0 / 0.35);
+  --cx-shadow-lg: 0 16px 56px rgb(0 0 0 / 0.5);
+  --cx-ring: 0 0 0 3px rgb(129 135 255 / 0.4);
+}
+
+@theme inline {
+  --color-bg: var(--cx-bg);
+  --color-bg-pattern: var(--cx-bg-pattern);
+  --color-overlay: var(--cx-overlay);
+  --color-surface: var(--cx-surface);
+  --color-surface-2: var(--cx-surface-2);
+  --color-surface-3: var(--cx-surface-3);
+  --color-border: var(--cx-border);
+  --color-border-strong: var(--cx-border-strong);
+  --color-ink: var(--cx-ink);
+  --color-ink-2: var(--cx-ink-2);
+  --color-muted: var(--cx-muted);
+  --color-brand: var(--cx-brand);
+  --color-brand-hover: var(--cx-brand-hover);
+  --color-brand-soft: var(--cx-brand-soft);
+  --color-brand-ring: var(--cx-brand-ring);
+  --color-accent: var(--cx-accent);
+  --color-accent-soft: var(--cx-accent-soft);
+  --color-success: var(--cx-success);
+  --color-success-soft: var(--cx-success-soft);
+  --color-warn: var(--cx-warn);
+  --color-warn-soft: var(--cx-warn-soft);
+  --color-danger: var(--cx-danger);
+  --color-danger-soft: var(--cx-danger-soft);
+  --color-info: var(--cx-info);
+  --color-info-soft: var(--cx-info-soft);
+  --color-gold: var(--cx-gold);
+
+  --shadow-sm: var(--cx-shadow-sm);
+  --shadow-card: var(--cx-shadow);
+  --shadow-lg: var(--cx-shadow-lg);
+
+  --font-sans: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--cx-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--cx-bg);
+    color: var(--cx-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--cx-brand);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--cx-border-strong);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--cx-muted);
+    background-clip: content-box;
+  }
+
+  /* Remove number input spinners (roll number fields) */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .cx-card {
+    @apply bg-surface border border-border rounded-2xl shadow-sm;
+  }
+
+  .cx-input {
+    @apply w-full rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-ink
+      placeholder:text-muted/70 transition
+      focus:border-brand focus:bg-surface focus:outline-none focus:ring-4 focus:ring-brand/20;
+  }
+
+  .cx-label {
+    @apply mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase;
+  }
+
+  .cx-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2
+      px-2.5 py-1 text-xs font-medium text-ink-2;
+  }
+
+  .cx-hairline {
+    @apply border-b border-border;
+  }
+
+  .cx-grid-pattern {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--cx-border) 60%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--cx-border) 60%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .cx-skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100]
+      focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .animate-in-up {
+    animation: cx-in-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes cx-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cx-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.cx-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--cx-surface-2);
+}
+.cx-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cx-ink) 7%, transparent), transparent);
+  animation: cx-shimmer 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

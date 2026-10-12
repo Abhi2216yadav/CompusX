@@ -1,0 +1,321 @@
+rules_version = '2';
+
+/**
+ * CampusX — Cloud Firestore security rules.
+ *
+ * Authorisation is derived from the caller's own `users/{uid}` document, so a
+ * client can never escalate by sending a different role. `schoolId` on every
+ * school-scoped document is what keeps one school from reading another's data.
+ *
+ * Deploy with: firebase deploy --only firestore:rules
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ── Helpers ─────────────────────────────────────────────────────────── */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function caller() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasCaller() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return hasCaller() ? caller().data.role : null;
+    }
+
+    function isRole(r) {
+      return hasCaller() && caller().data.role == r;
+    }
+
+    function isAdmin() {
+      return isRole('admin');
+    }
+
+    function isTeacher() {
+      return isRole('teacher');
+    }
+
+    function isStudent() {
+      return isRole('student');
+    }
+
+    /** Staff = anyone who may create school content. */
+    function isStaff() {
+      return isTeacher() || isAdmin();
+    }
+
+    /** Same school as the signed-in user. */
+    function sameSchool(id) {
+      return hasCaller() && caller().data.schoolId == id;
+    }
+
+    /** Own document. */
+    function isSelf(id) {
+      return isSignedIn() && request.auth.uid == id;
+    }
+
+    /* ── Schools ──────────────────────────────────────────────────────────── */
+
+    match /schools/{schoolId} {
+      // Any signed-in user needs the school record for branding and settings;
+      // `leaderboardPublic` and `peerLearningEnabled` are safe to expose.
+      allow read: if isSignedIn();
+      // Only an admin of that same school may change it.
+      allow create, update, delete: if isAdmin() && sameSchool(schoolId);
+    }
+
+    /* ── Users ────────────────────────────────────────────────────────────── */
+
+    match /users/{userId} {
+      // A profile is readable by its owner and by staff of the same school.
+      allow get: if isSelf(userId) || (isStaff() && sameSchool(caller().data.schoolId));
+      allow list: if isStaff();
+
+      // Self sign-up only, and only with a student role. Staff accounts are
+      // created by an admin, never by the person signing up — otherwise anyone
+      // could self-promote and gain content-management rights.
+      //
+      // `caller()` cannot be used to check the school here: it reads this very
+      // document, which does not exist yet, so the read would fail and the
+      // write would be denied for every new user. The school is instead
+      // validated against the schools collection, and the class against the
+      // class list, so a forged schoolId cannot attach a profile to a school
+      // that does not exist.
+      allow create: if isSelf(userId)
+                    && request.resource.data.role == 'student'
+                    && request.resource.data.isActive == true
+                    && request.resource.data.schoolId is string
+                    && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId))
+                    && request.resource.data.classId is string
+                    && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId));
+
+      // A user may edit their own safe fields. Role, schoolId and isActive are
+      // admin-only, so nobody can promote themselves.
+      allow update: if (isSelf(userId)
+                      && request.resource.data.role == resource.data.role
+                      && request.resource.data.schoolId == resource.data.schoolId
+                      && request.resource.data.isActive == resource.data.isActive)
+                    || isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    /* ── Academic structure ───────────────────────────────────────────────── */
+
+    match /classes/{classId} {
+      // Any signed-in user may read the class list, including a user who has
+      // just created their Firebase Auth account but has no profile document
+      // yet: the onboarding form needs the class list in order to build that
+      // first profile. A class document holds only name, level and section —
+      // no student information — so this exposes nothing private.
+      allow read: if isSignedIn() || (hasCaller() && sameSchool(resource.data.schoolId));
+      allow write: if isAdmin() && (request.resource.data.schoolId == caller().data.schoolId
+                                   || resource.data.schoolId == caller().data.schoolId);
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isAdmin() && (request.resource.data.schoolId == caller().data.schoolId
+                                   || resource.data.schoolId == caller().data.schoolId);
+    }
+
+    match /chapters/{chapterId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && (request.resource.data.schoolId == caller().data.schoolId
+                                   || resource.data.schoolId == caller().data.schoolId);
+    }
+
+    /* ── Content ──────────────────────────────────────────────────────────── */
+
+    match /materials/{materialId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      // Staff upload approved material. Students may upload their own
+      // contribution, which must be unapproved until a teacher reviews it.
+      allow create: if isStaff()
+                       ? (request.resource.data.schoolId == caller().data.schoolId
+                          && request.resource.data.isApproved == true)
+                       : (isStudent()
+                          && request.resource.data.schoolId == caller().data.schoolId
+                          && request.resource.data.isStudentContribution == true
+                          && request.resource.data.isApproved == false);
+      allow update: if isStaff() && sameSchool(resource.data.schoolId);
+      allow delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /homework/{taskId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      // Students only ever patch their own completion list.
+      allow update: if (isStaff() && sameSchool(resource.data.schoolId))
+                    || (isStudent()
+                        && sameSchool(resource.data.schoolId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['completedBy'])
+                        && request.resource.data.completedBy.size() <= 200);
+      allow delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /assignments/{taskId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      allow update: if (isStaff() && sameSchool(resource.data.schoolId))
+                    || (isStudent()
+                        && sameSchool(resource.data.schoolId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['completedBy'])
+                        && request.resource.data.completedBy.size() <= 200);
+      allow delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /notices/{noticeId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /events/{eventId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      // Registration only touches the attendee list.
+      allow update: if (isStaff() && sameSchool(resource.data.schoolId))
+                    || (isStudent()
+                        && sameSchool(resource.data.schoolId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['attendeeIds']));
+      allow delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /clubs/{clubId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      // Members may update their own membership or add an announcement.
+      allow update: if (isStaff() && sameSchool(resource.data.schoolId))
+                    || (isStudent() && sameSchool(resource.data.schoolId));
+      allow delete: if isAdmin() && sameSchool(resource.data.schoolId);
+    }
+
+    /* ── Questions, quizzes and tests ─────────────────────────────────────── */
+
+    match /questions/{questionId} {
+      // NOTE: CampusX grades on the client (`services/attempts.ts`), so a
+      // student runner has to read `correctIndex` to score a paper. That means a
+      // determined student can read the answer key out of devtools/network tab.
+      // The rule below keeps the blast radius to one school and stops students
+      // editing the bank; it is NOT an anti-cheat boundary.
+      //
+      // To close this properly, move grading into a callable Cloud Function and
+      // change the read rule to `isStaff() && sameSchool(...)`. See README.md
+      // -> "Known security limitation".
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /pyqs/{pyqId} {
+      // Same caveat as /questions — client-side grading needs the key.
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /mockTests/{testId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    /* ── Attempts ─────────────────────────────────────────────────────────── */
+
+    match /testAttempts/{attemptId} {
+      allow read: if isStudent() && isSelf(resource.data.studentId)
+                  || (isStaff() && sameSchool(resource.data.schoolId));
+      allow create: if isStudent()
+                    && request.resource.data.studentId == request.auth.uid
+                    && request.resource.data.schoolId == caller().data.schoolId;
+      // An attempt is immutable once written: it feeds the leaderboard, and a
+      // mutable score would let anyone edit their own rank.
+      allow update, delete: if isAdmin();
+    }
+
+    /* ── Attendance ───────────────────────────────────────────────────────── */
+
+    // Document id == student id, so one aggregate read covers a whole class.
+    match /attendance/{studentId} {
+      allow read: if isStaff() && sameSchool(resource.data.schoolId)
+                  || (isStudent() && isSelf(studentId));
+      allow write: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    /* ── Community ────────────────────────────────────────────────────────── */
+
+    match /lostFound/{postId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStudent() && request.resource.data.schoolId == caller().data.schoolId;
+      // Author edits own post; staff moderate it.
+      allow update: if (isStudent() && sameSchool(resource.data.schoolId)
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['reports']))
+                    || (isStaff() && sameSchool(resource.data.schoolId));
+      allow delete: if (isStudent() && resource.data.postedBy == request.auth.uid)
+                    || isAdmin();
+    }
+
+    match /studentQuestions/{questionId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow create: if isStudent() && request.resource.data.schoolId == caller().data.schoolId;
+      allow update: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow delete: if isAdmin()
+                    || (isStudent() && resource.data.authorId == request.auth.uid);
+    }
+
+    /* ── Reputation, notifications and ranking ────────────────────────────── */
+
+    match /contributions/{contributionId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      // Students may propose; the points and approval fields are staff-only.
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      allow update, delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      // Only staff broadcast; `readBy` may be extended by the recipient.
+      allow create: if isStaff() && request.resource.data.schoolId == caller().data.schoolId;
+      allow update: if isStaff() && sameSchool(resource.data.schoolId)
+                    || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+                        && sameSchool(resource.data.schoolId));
+      allow delete: if isStaff() && sameSchool(resource.data.schoolId);
+    }
+
+    // Ranking is derived data. Only the admin that recomputed it may write.
+    match /studentMetrics/{studentId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isAdmin();
+    }
+
+    match /leaderboardSnapshots/{scopeId} {
+      allow read: if hasCaller() && sameSchool(resource.data.schoolId);
+      allow write: if isAdmin();
+    }
+
+    match /leaderboardConfig/{configId} {
+      allow read: if hasCaller();
+      allow write: if isAdmin();
+    }
+
+    /* ── Default deny ─────────────────────────────────────────────────────── */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

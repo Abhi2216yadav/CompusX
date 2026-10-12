@@ -1,0 +1,6 @@
+# CampusX Firebase project — REPLACE BOTH PLACEHOLDERS
+{
+  "projects": {
+    "default": "your-firebase-project-id"
+  }
+}

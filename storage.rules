@@ -1,0 +1,80 @@
+rules_version = '2';
+
+/**
+ * CampusX — Cloud Storage security rules.
+ *
+ * Uploads are namespaced as `schools/{schoolId}/materials/{uploaderId}/{file}`
+ * so a user can only ever write inside their own school's folder, and only to a
+ * folder named after their own uid.
+ *
+ * Deploy with: firebase deploy --only storage
+ */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function caller() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function role() {
+      return caller().data.role;
+    }
+
+    function isStaff() {
+      return isSignedIn() && (role() == 'teacher' || role() == 'admin');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && role() == 'admin';
+    }
+
+    /** Same school as the signed-in user. */
+    function sameSchool(schoolId) {
+      return isSignedIn() && caller().data.schoolId == schoolId;
+    }
+
+    /** Uploads are capped at 25 MB. */
+    function underSizeLimit() {
+      return request.resource.size < 25 * 1024 * 1024;
+    }
+
+    function isAllowedContentType() {
+      return request.resource.contentType.matches('image/.*|application/pdf|text/.*|video/.*');
+    }
+
+    match /schools/{schoolId}/{allPaths=**} {
+      // Anyone signed into this school may read school content.
+      allow read: if sameSchool(schoolId);
+
+      // Only staff upload, and only into their own folder.
+      allow create: if isStaff() && sameSchool(schoolId)
+                    && request.auth.uid == allPaths[0]
+                    && underSizeLimit()
+                    && isAllowedContentType();
+
+      // A uploader may replace their own file; admins may remove anything.
+      allow update: if (isStaff() && sameSchool(schoolId) && request.auth.uid == allPaths[0])
+                    || isAdmin();
+
+      allow delete: if isStaff() && sameSchool(schoolId) && request.auth.uid == allPaths[0];
+    }
+
+    match /avatars/{schoolId}/{userId}/{fileName} {
+      allow read: if sameSchool(schoolId);
+      allow write: if isSignedIn()
+                   && request.auth.uid == userId
+                   && sameSchool(schoolId)
+                   && underSizeLimit()
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

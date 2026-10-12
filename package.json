@@ -1,0 +1,40 @@
+{
+  "name": "compusx",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "smoke": "vite build --ssr scripts/smoke.ts --outDir dist-smoke && node --import ./scripts/dom-shim.mjs ./dist-smoke/smoke.js",
+    "seed": "vite build --ssr scripts/seed-firestore.ts --outDir dist-seed && node ./dist-seed/seed-firestore.js",
+    "seed:dry": "npm run seed -- --dry-run"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "firebase": "^12.19.0",
+    "lucide-react": "^1.49.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-hot-toast": "^2.6.1",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "firebase-admin": "^14.5.0",
+    "firebase-tools": "^15.32.1",
+    "oxlint": "^1.81.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

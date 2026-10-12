@@ -1,0 +1,34 @@
+
+> compusx@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+
+  [32m[1mVITE[22m v8.3.2[39m  [2mready in [0m[1m307[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m1:32:07 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:32:21 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:33:42 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:33:55 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:34:05 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:43:20 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:43:36 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:43:47 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:43:56 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx[22m
+[2m1:44:17 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/components/layout/AppShell.tsx, /src/pages/auth/Onboarding.tsx, /src/pages/auth/Login.tsx[22m
+[2m1:44:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m5:32:26 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/layout/AppShell.tsx, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/pages/student/StudyHub.tsx, /src/pages/student/QuizList.tsx, /src/pages/student/PyqPractice.tsx, /src/pages/student/MockTestList.tsx, /src/pages/student/Analytics.tsx, /src/pages/leaderboard/Leaderboard.tsx, /src/pages/student/Profile.tsx, /src/components/content/TaskBoard.tsx, /src/pages/student/PeerLearning.tsx and 39 more[22m
+[2m5:32:26 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/layout/AppShell.tsx, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/pages/student/StudyHub.tsx, /src/pages/student/QuizList.tsx, /src/pages/student/PyqPractice.tsx, /src/pages/student/MockTestList.tsx, /src/pages/student/Analytics.tsx, /src/pages/leaderboard/Leaderboard.tsx, /src/pages/student/Profile.tsx, /src/components/content/TaskBoard.tsx, /src/pages/student/PeerLearning.tsx and 39 more[22m
+[2m5:32:27 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/layout/AppShell.tsx, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/pages/student/StudyHub.tsx, /src/pages/student/QuizList.tsx, /src/pages/student/PyqPractice.tsx, /src/pages/student/MockTestList.tsx, /src/pages/student/Analytics.tsx, /src/pages/leaderboard/Leaderboard.tsx, /src/pages/student/Profile.tsx, /src/components/content/TaskBoard.tsx, /src/pages/student/PeerLearning.tsx and 39 more[22m
+[2m5:32:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/layout/AppShell.tsx, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/pages/student/StudyHub.tsx, /src/pages/student/QuizList.tsx, /src/pages/student/PyqPractice.tsx, /src/pages/student/MockTestList.tsx, /src/pages/student/Analytics.tsx, /src/pages/leaderboard/Leaderboard.tsx, /src/pages/student/Profile.tsx, /src/components/content/TaskBoard.tsx, /src/pages/student/PeerLearning.tsx and 39 more[22m
+[2m5:32:33 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/layout/AppShell.tsx, /src/context/AuthContext.tsx, /src/components/layout/GlobalSearch.tsx, /src/context/NotificationContext.tsx, /src/pages/student/StudyHub.tsx, /src/pages/student/QuizList.tsx, /src/pages/student/PyqPractice.tsx, /src/pages/student/MockTestList.tsx, /src/pages/student/Analytics.tsx, /src/pages/leaderboard/Leaderboard.tsx, /src/pages/student/Profile.tsx, /src/components/content/TaskBoard.tsx, /src/pages/student/PeerLearning.tsx and 38 more[22m
+[2m5:34:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/student/StudyHub.tsx[22m
+[2m5:34:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/student/StudyHub.tsx[22m
+[2m5:34:46 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/student/StudyHub.tsx[22m
+[2m5:42:02 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/student/Dashboard.tsx[22m
+[2m5:42:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m5:43:01 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m5:43:07 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
