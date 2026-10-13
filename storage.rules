@@ -66,11 +66,13 @@ service firebase.storage {
 
     match /avatars/{schoolId}/{userId}/{fileName} {
       allow read: if sameSchool(schoolId);
+      // Users upload their own avatar; an admin may also set one for a teacher
+      // they are provisioning or editing.
       allow write: if isSignedIn()
-                   && request.auth.uid == userId
                    && sameSchool(schoolId)
                    && underSizeLimit()
-                   && request.resource.contentType.matches('image/.*');
+                   && request.resource.contentType.matches('image/.*')
+                   && (request.auth.uid == userId || isAdmin());
     }
 
     match /{allPaths=**} {

@@ -1,28 +1,44 @@
-import { useMemo } from 'react'
-import { BookOpen, UserCheck, UserCog } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import {
+  BookOpen,
+  GraduationCap,
+  KeyRound,
+  Trash2,
+  UserCheck,
+  UserCog,
+  UserPlus,
+  UserX,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
 
 import { useAuth } from '@/context/AuthContext'
 import { COLLECTIONS } from '@/services/db'
 import type { UserProfile } from '@/services/types'
+import { deleteTeacher, sendTeacherInvite } from '@/services/teachers'
 import { useCollection } from '@/hooks/useCollection'
-import { useSchoolData } from '@/hooks/useSchoolData'
-import { CrudModal, useCrudModal, useRowSearch, type Draft } from '@/components/crud/CrudShell'
+import { useSaver, useSchoolData } from '@/hooks/useSchoolData'
+import { useRowSearch } from '@/components/crud/CrudShell'
+import { TeacherFormModal } from '@/components/teachers/TeacherFormModal'
 import { DataTable, type Column } from '@/components/ui/DataTable'
 import { PageHeader, StatTile } from '@/components/ui/Card'
 import { Avatar, Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input, Switch, Textarea } from '@/components/ui/Input'
+import { Input } from '@/components/ui/Input'
 import { LoadingState } from '@/components/ui/Feedback'
+import { ConfirmDialog } from '@/components/ui/Modal'
 
 const SEARCH_FIELDS = (teacher: UserProfile): string[] => [
   teacher.name ?? '',
   teacher.email ?? '',
+  teacher.teacherId ?? '',
   teacher.designation ?? '',
+  teacher.phone ?? '',
 ]
 
 export default function AdminTeachers() {
   const { profile } = useAuth()
   const schoolId = profile?.schoolId ?? ''
+  const academicYear = profile?.academicYear ?? ''
 
   const teachers = useCollection<UserProfile>(
     COLLECTIONS.users,
@@ -35,33 +51,53 @@ export default function AdminTeachers() {
     },
     [schoolId]
   )
-  const { subjects, subjectById, loading: structureLoading } = useSchoolData(schoolId)
-  const crud = useCrudModal<UserProfile>()
+  const { subjects, classes, subjectById, loading: structureLoading } = useSchoolData(schoolId)
+  const { save } = useSaver()
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<UserProfile | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<UserProfile | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const search = useRowSearch(teachers.data, SEARCH_FIELDS)
   const rows = search.filtered
 
   const stats = useMemo(() => {
     const covered = new Set<string>()
+    const assigned = new Set<UserProfile>()
     for (const teacher of teachers.data) {
       for (const id of teacher.subjects ?? []) covered.add(id)
+      if ((teacher.classIds ?? []).length) assigned.add(teacher)
     }
     return {
       total: teachers.data.length,
       active: teachers.data.filter((t) => t.isActive).length,
       covered: covered.size,
+      unassigned: teachers.data.length - assigned.size,
     }
   }, [teachers.data])
 
-  function buildTeacher(draft: Draft): Record<string, unknown> {
-    return {
-      ...(crud.editing ?? {}),
-      designation: String(draft.designation ?? '').trim(),
-      phone: String(draft.phone ?? '').trim(),
-      bio: String(draft.bio ?? '').trim(),
-      subjects: Array.isArray(draft.subjects) ? (draft.subjects as string[]) : [],
-      isActive: draft.isActive ?? true,
-      updatedAt: Date.now(),
+  function openCreate() {
+    setEditing(null)
+    setFormOpen(true)
+  }
+
+  function openEdit(teacher: UserProfile) {
+    setEditing(teacher)
+    setFormOpen(true)
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return
+    setDeleting(true)
+    try {
+      await deleteTeacher(pendingDelete.id)
+      toast.success(`${pendingDelete.name} removed`)
+      setPendingDelete(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not remove the teacher.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -80,8 +116,20 @@ export default function AdminTeachers() {
       ),
     },
     {
+      key: 'teacherId',
+      header: 'ID',
+      hideBelow: 'lg',
+      cell: (t) =>
+        t.teacherId ? (
+          <span className="tabular text-xs font-semibold text-muted">{t.teacherId}</span>
+        ) : (
+          <span className="text-muted">—</span>
+        ),
+    },
+    {
       key: 'designation',
       header: 'Designation',
+      hideBelow: 'md',
       cell: (t) => t.designation || <span className="text-muted">—</span>,
     },
     {
@@ -104,9 +152,19 @@ export default function AdminTeachers() {
       },
     },
     {
+      key: 'classes',
+      header: 'Classes',
+      hideBelow: 'lg',
+      cell: (t) => {
+        const ids = t.classIds ?? []
+        if (!ids.length) return <span className="text-muted">Not assigned</span>
+        return <span className="tabular text-xs font-semibold text-ink">{ids.length}</span>
+      },
+    },
+    {
       key: 'status',
       header: 'Status',
-      align: 'right',
+      align: 'center',
       cell: (t) => (
         <Badge tone={t.isActive ? 'success' : 'neutral'}>{t.isActive ? 'Active' : 'Inactive'}</Badge>
       ),
@@ -116,9 +174,54 @@ export default function AdminTeachers() {
       header: '',
       align: 'right',
       cell: (t) => (
-        <Button size="sm" variant="secondary" onClick={() => crud.edit(t)}>
-          Manage
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Email ${t.name} a password setup link`}
+            title="Send password setup email"
+            onClick={() => {
+              void sendTeacherInvite(t.email)
+                .then(() => toast.success(`Setup email sent to ${t.email}`))
+                .catch((e: unknown) =>
+                  toast.error(e instanceof Error ? e.message : 'Could not send the email.')
+                )
+            }}
+          >
+            <KeyRound className="size-3.5" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t.isActive ? `Deactivate ${t.name}` : `Reactivate ${t.name}`}
+            title={t.isActive ? 'Deactivate' : 'Reactivate'}
+            onClick={() =>
+              void save(
+                COLLECTIONS.users,
+                { id: t.id, isActive: !t.isActive, updatedAt: Date.now() },
+                {
+                  id: t.id,
+                  success: t.isActive ? `${t.name} deactivated` : `${t.name} reactivated`,
+                }
+              )
+            }
+          >
+            {t.isActive ? <UserX className="size-3.5" /> : <UserCheck className="size-3.5" />}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => openEdit(t)}>
+            Manage
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Remove ${t.name}`}
+            title="Remove teacher"
+            className="text-muted hover:text-danger"
+            onClick={() => setPendingDelete(t)}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
       ),
     },
   ]
@@ -127,14 +230,19 @@ export default function AdminTeachers() {
     <div className="mx-auto w-full max-w-6xl">
       <PageHeader
         title="Teachers"
-        description="Teaching staff, designations and the subjects each teacher covers."
+        description="Teaching staff, designations, subjects and class assignments."
+        action={
+          <Button icon={<UserPlus className="size-4" />} onClick={openCreate} disabled={!schoolId}>
+            Add teacher
+          </Button>
+        }
       />
 
       {teachers.loading || structureLoading ? (
         <LoadingState label="Loading teachers…" rows={6} />
       ) : (
         <>
-          <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile
               label="Teachers"
               value={stats.total}
@@ -155,118 +263,70 @@ export default function AdminTeachers() {
               icon={<BookOpen className="size-4" />}
               tone="info"
             />
+            <StatTile
+              label="No classes yet"
+              value={stats.unassigned}
+              hint="need class assignments"
+              icon={<GraduationCap className="size-4" />}
+              tone={stats.unassigned ? 'warn' : 'brand'}
+            />
           </div>
 
-          <div className="mb-4">
-            <div className="sm:max-w-xs">
-              <Input
-                value={search.query}
-                onChange={(e) => search.setQuery(e.target.value)}
-                placeholder="Search name, email or designation…"
-                aria-label="Search teachers"
-                className="h-9"
-              />
-            </div>
+          <div className="mb-4 sm:max-w-xs">
+            <Input
+              value={search.query}
+              onChange={(e) => search.setQuery(e.target.value)}
+              placeholder="Search name, email, ID or designation…"
+              aria-label="Search teachers"
+              className="h-9"
+            />
           </div>
 
           <DataTable
             rows={rows}
             columns={columns}
             rowKey={(t) => t.id}
-            onRowClick={(t) => crud.edit(t)}
+            onRowClick={(t) => openEdit(t)}
             empty={{
               title: search.query ? 'No matching teachers' : 'No teachers yet',
               description: search.query
-                ? 'Try a different name, email or designation.'
-                : 'Teachers appear here once they register with a teacher account.',
+                ? 'Try a different name, email, ID or designation.'
+                : 'Add your first teacher to create their login, subjects and class assignments.',
+              action: !search.query ? (
+                <Button icon={<UserPlus className="size-4" />} onClick={openCreate}>
+                  Add teacher
+                </Button>
+              ) : undefined,
             }}
           />
 
-          <CrudModal<UserProfile>
-            open={crud.open}
-            editing={crud.editing}
-            title={crud.editing ? crud.editing.name : 'Teacher'}
-            description="Set the designation, contact details and the subjects this teacher covers."
-            collection={COLLECTIONS.users}
-            build={buildTeacher}
-            fields={(d, set) => (
-              <>
-                <div className="grid gap-3.5 sm:grid-cols-2">
-                  <Input
-                    label="Designation"
-                    value={String(d.designation ?? '')}
-                    onChange={(e) => set({ designation: e.target.value })}
-                    placeholder="Senior Mathematics Teacher"
-                  />
-                  <Input
-                    label="Phone"
-                    value={String(d.phone ?? '')}
-                    onChange={(e) => set({ phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
-                <Textarea
-                  label="Bio"
-                  rows={4}
-                  value={String(d.bio ?? '')}
-                  onChange={(e) => set({ bio: e.target.value })}
-                  placeholder="Experience, specialities and anything students should know."
-                />
+          {schoolId && (
+            <TeacherFormModal
+              open={formOpen}
+              onClose={() => setFormOpen(false)}
+              schoolId={schoolId}
+              academicYear={academicYear}
+              createdBy={profile?.id ?? ''}
+              editing={editing}
+              subjects={subjects}
+              classes={classes}
+              onSaved={teachers.refresh}
+            />
+          )}
 
-                <fieldset>
-                  <legend className="cx-label">Subjects</legend>
-                  <p className="mb-2 text-xs text-muted">
-                    Used to decide which study material and questions this teacher sees.
-                  </p>
-                  {subjects.length === 0 ? (
-                    <p className="text-xs text-muted">No subjects created yet.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {subjects.map((subject) => {
-                        const selected = ((d.subjects as string[] | undefined) ?? []).includes(
-                          subject.id
-                        )
-                        return (
-                          <button
-                            key={subject.id}
-                            type="button"
-                            aria-pressed={selected}
-                            onClick={() => {
-                              const current = (d.subjects as string[] | undefined) ?? []
-                              set({
-                                subjects: selected
-                                  ? current.filter((id) => id !== subject.id)
-                                  : [...current, subject.id],
-                              })
-                            }}
-                            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                              selected
-                                ? 'border-brand bg-brand-soft text-brand'
-                                : 'border-border bg-surface-2 text-muted hover:text-ink'
-                            }`}
-                          >
-                            <span
-                              className="size-2 rounded-full"
-                              style={{ backgroundColor: subject.color }}
-                              aria-hidden
-                            />
-                            {subject.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </fieldset>
-
-                <Switch
-                  checked={Boolean(d.isActive ?? true)}
-                  onChange={(v) => set({ isActive: v })}
-                  label="Active account"
-                  description="Inactive teachers cannot sign in to CampusX."
-                />
-              </>
-            )}
-            onClose={crud.close}
+          <ConfirmDialog
+            open={Boolean(pendingDelete)}
+            title="Remove teacher?"
+            tone="danger"
+            confirmLabel="Remove"
+            loading={deleting}
+            onCancel={() => setPendingDelete(null)}
+            onConfirm={() => void confirmDelete()}
+            message={
+              pendingDelete
+                ? `${pendingDelete.name} will lose access to CampusX immediately. Their login account remains, so the email cannot be reused until it is removed from the authentication console.`
+                : ''
+            }
           />
         </>
       )}

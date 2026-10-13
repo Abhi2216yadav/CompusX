@@ -25,6 +25,43 @@ import { makeId } from '@/utils/id'
 const NS = 'campusx.demo.v1'
 const KEY = (col: CollectionName) => `${NS}.${col}`
 const SESSION_KEY = `${NS}.session`
+/** Salted hashes for accounts created at runtime — never plaintext. */
+const CRED_KEY = `${NS}.credentials`
+
+interface StoredCredential {
+  salt: string
+  hash: string
+}
+
+/**
+ * Demo-only password hash. Uses Web Crypto (SHA-256, salted) where available
+ * and a deterministic fallback elsewhere. Passwords are never stored in clear.
+ */
+async function hashPassword(password: string, salt: string): Promise<string> {
+  const input = `${salt}:${password}`
+  const subtle = globalThis.crypto?.subtle
+  if (subtle) {
+    const digest = await subtle.digest('SHA-256', new TextEncoder().encode(input))
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  }
+  let h = 2166136261
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return `fnv.${(h >>> 0).toString(16)}`
+}
+
+function randomSalt(): string {
+  const bytes = new Uint8Array(16)
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes)
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256)
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 export type DemoRole = 'student' | 'teacher' | 'admin'
 
@@ -74,6 +111,7 @@ export function resetDemoData() {
   for (const col of Object.values(COLLECTIONS)) localStorage.removeItem(KEY(col))
   localStorage.removeItem(`${NS}.seeded`)
   localStorage.removeItem(SESSION_KEY)
+  removeItem(CRED_KEY)
   ensureSeeded()
   broadcast()
 }
@@ -102,6 +140,22 @@ function removeItem(key: string) {
   } catch {
     delete memoryFallback[key]
   }
+}
+
+function readCredentials(): Record<string, StoredCredential> {
+  const raw = getItem(CRED_KEY)
+  if (!raw) return {}
+  try {
+    return JSON.parse(raw) as Record<string, StoredCredential>
+  } catch {
+    return {}
+  }
+}
+
+function writeCredential(uid: string, cred: StoredCredential) {
+  const all = readCredentials()
+  all[uid] = cred
+  setItem(CRED_KEY, JSON.stringify(all))
 }
 
 function readCol<T>(col: CollectionName): T[] {
@@ -283,12 +337,16 @@ async get<T>(col: CollectionName, id: string) {
     )
     if (!doc) throw new Error('No account found with that email address.')
     const acc = accountFromUserDoc(doc)
-    const expected = DEMO_PASSWORDS[acc.uid]
-    if (expected && password !== expected) {
-      throw new Error('Incorrect password. Please try again.')
-    }
-    if (!expected && password.length < 6) {
-      throw new Error('Incorrect password. Please try again.')
+    const stored = readCredentials()[acc.uid]
+    if (stored) {
+      const hash = await hashPassword(password, stored.salt)
+      if (hash !== stored.hash) throw new Error('Incorrect password. Please try again.')
+    } else if (DEMO_PASSWORDS[acc.uid]) {
+      if (password !== DEMO_PASSWORDS[acc.uid]) {
+        throw new Error('Incorrect password. Please try again.')
+      }
+    } else {
+      throw new Error('No password has been set for this account. Ask an administrator to reset it.')
     }
     writeSession(acc.uid)
     broadcast()
@@ -326,6 +384,22 @@ async get<T>(col: CollectionName, id: string) {
     }
   },
 
+  async createStaffAccount({ email, displayName, password }) {
+    const users = readCol<Record<string, unknown>>(COLLECTIONS.users)
+    if (users.some((u) => String(u.email).toLowerCase() === email.trim().toLowerCase())) {
+      throw new Error('An account with this email address already exists.')
+    }
+    const uid = `u-${makeId()}`
+    const salt = randomSalt()
+    const secret = password && password.length >= 6 ? password : `Cx-${randomSalt().slice(0, 12)}`
+    writeCredential(uid, { salt, hash: await hashPassword(secret, salt) })
+    void displayName
+    broadcast()
+    // The profile document is written by the caller so the account and its
+    // class/subject assignments are created together.
+    return { uid, inviteSent: !password }
+  },
+
   async signInWithGoogle() {
     // Simulates the Google popup by attaching the email to the demo student.
     const users = readCol<Record<string, unknown>>(COLLECTIONS.users)
@@ -340,7 +414,10 @@ async get<T>(col: CollectionName, id: string) {
     const users = readCol<Record<string, unknown>>(COLLECTIONS.users)
     const doc = users.find((u) => String(u.email).toLowerCase() === email.toLowerCase())
     if (!doc) throw new Error('No account found with that email address.')
-    DEMO_PASSWORDS[String(doc.id)] = 'campusx123'
+    const uid = String(doc.id)
+    const salt = randomSalt()
+    writeCredential(uid, { salt, hash: await hashPassword('campusx123', salt) })
+    DEMO_PASSWORDS[uid] = 'campusx123'
     broadcast()
   },
 
@@ -348,6 +425,8 @@ async get<T>(col: CollectionName, id: string) {
     const uid = readSession()
     if (!uid) throw new Error('You must be signed in to change your password.')
     if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.')
+    const salt = randomSalt()
+    writeCredential(uid, { salt, hash: await hashPassword(newPassword, salt) })
     DEMO_PASSWORDS[uid] = newPassword
     broadcast()
   },

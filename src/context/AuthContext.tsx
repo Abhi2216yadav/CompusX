@@ -28,6 +28,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
+  changePassword: (newPassword: string) => Promise<void>
   refreshProfile: () => Promise<void>
   updateProfile: (patch: Partial<UserProfile>) => Promise<void>
 }
@@ -107,6 +108,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback((email: string) => db.resetPassword(email), [])
 
+  // Used by the forced first-login flow: change the credential, clear the
+  // `mustChangePassword` flag on the profile, then refresh so the guard releases.
+  const changePassword = useCallback(
+    async (newPassword: string) => {
+      if (!authUser) throw new Error('You must be signed in to change your password.')
+      await db.changePassword(newPassword)
+      await db.update(COLLECTIONS.users, authUser.uid, {
+        mustChangePassword: false,
+        updatedAt: Date.now(),
+      })
+      await loadProfile(authUser.uid, authUser.email)
+    },
+    [authUser, loadProfile]
+  )
+
   const refreshProfile = useCallback(async () => {
     if (authUser) await loadProfile(authUser.uid, authUser.email)
   }, [authUser, loadProfile])
@@ -134,12 +150,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       resetPassword,
+      changePassword,
       refreshProfile,
       updateProfile,
     }),
     [
       authUser, profile, school, loading, signIn, signUp, signInWithGoogle,
-      signOut, resetPassword, refreshProfile, updateProfile,
+      signOut, resetPassword, changePassword, refreshProfile, updateProfile,
     ]
   )
 

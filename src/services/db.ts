@@ -97,6 +97,23 @@ export interface AuthUser {
 
 export type Unsubscribe = () => void
 
+export interface CreateStaffAccountParams {
+  email: string
+  displayName: string
+  /**
+   * Administrator-chosen temporary password. When omitted the backend creates
+   * the account with a random secret and the caller should trigger a secure
+   * password-setup (reset) email so the user chooses their own password.
+   */
+  password?: string
+}
+
+export interface CreateStaffAccountResult {
+  uid: string
+  /** True when no password was supplied and a setup email should be sent. */
+  inviteSent: boolean
+}
+
 export interface Db {
   readonly kind: 'firestore' | 'demo'
   readonly label: string
@@ -124,6 +141,13 @@ export interface Db {
   onAuth(cb: (user: AuthUser | null) => void): Unsubscribe
   signIn(email: string, password: string): Promise<void>
   signUp(email: string, password: string, displayName: string): Promise<AuthUser>
+  /**
+   * Creates a Firebase Auth (or demo) account for another person without
+   * disturbing the caller's own session. Only ever invoked by an administrator;
+   * authorisation is enforced by the backend and the security rules, never by
+   * this call site alone.
+   */
+  createStaffAccount(params: CreateStaffAccountParams): Promise<CreateStaffAccountResult>
   signInWithGoogle(): Promise<AuthUser>
   resetPassword(email: string): Promise<void>
   changePassword(newPassword: string): Promise<void>

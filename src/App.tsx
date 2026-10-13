@@ -22,6 +22,7 @@ const Login = lazy(() => import('@/pages/auth/Login'))
 const Register = lazy(() => import('@/pages/auth/Register'))
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'))
 const Onboarding = lazy(() => import('@/pages/auth/Onboarding'))
+const ChangePassword = lazy(() => import('@/pages/auth/ChangePassword'))
 
 /* ── Student ────────────────────────────────────────────────────────────── */
 const StudentDashboard = lazy(() => import('@/pages/student/Dashboard'))
@@ -107,6 +108,11 @@ function RequireAuth({ children, roles }: { children: ReactNode; roles?: Role[] 
   if (loading) return <FullPageLoader />
   if (!authUser) return <Navigate to="/login" state={{ from: location.pathname }} replace />
   if (needsOnboarding) return <Navigate to="/welcome" replace />
+  // Admin-created accounts carry a temporary password. Hold them on the
+  // change-password screen until they set their own.
+  if (profile?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
+  }
   if (roles && profile && !roles.includes(profile.role)) {
     return <Navigate to={profile.role === 'teacher' ? '/teacher' : '/dashboard'} replace />
   }
@@ -251,6 +257,16 @@ export default function App() {
               <Suspense fallback={<FullPageLoader />}>
                 <Onboarding />
               </Suspense>
+            }
+          />
+          <Route
+            path="/change-password"
+            element={
+              <RequireAuth>
+                <Suspense fallback={<FullPageLoader />}>
+                  <ChangePassword />
+                </Suspense>
+              </RequireAuth>
             }
           />
 

@@ -72,6 +72,37 @@ a demo badge in the UI.
 
 ---
 
+## Managing teachers (admin)
+
+Admin → **Teachers → Add teacher** registers a teacher end to end:
+
+1. **Validation & duplicates** (`src/services/teachers.ts`) — catches format
+   errors, duplicate emails and duplicate staff ids before anything is written.
+2. **Staff id** — auto-generated as `TCH-<year>-<0001>` (unique per school) and
+   editable by the admin.
+3. **Auth account** — with Cloud Firestore, an administrator cannot create
+   another user's account through the primary session, so `createStaffAccount`
+   uses a **throwaway secondary Firebase app** (`initializeApp(config, name)`)
+   and deletes it afterwards — the admin stays signed in. Auth enforcement
+   itself lives in the security rules, never only in the client.
+4. **Two credential modes**:
+   - *Set a temporary password* — stored salted-hashed in demo mode, encrypted
+     by Firebase Auth otherwise. The profile carries `mustChangePassword: true`,
+     and the `RequireAuth` guard blocks the app until the teacher sets their own
+     password at `/change-password` (`src/pages/auth/ChangePassword.tsx`).
+   - *Email a secure setup link* — triggers the normal reset flow so the teacher
+     chooses their own password.
+5. **Profile + assignments** — the `users/{uid}` document stores designation,
+   qualification, joining date, `teacherId`, subject and class assignments, and
+   `createdBy`, so deactivating or deleting the profile revokes access.
+
+Passwords are never stored or returned by the API. Deleting a teacher removes
+the profile (which revokes sign-in) but, without a server runtime, cannot also
+delete the Auth account — a reusable email must be freed from the Firebase
+Authentication console.
+
+---
+
 ## Architecture
 
 ```
@@ -228,7 +259,10 @@ query fails — paste that definition into the file.
 - Students cannot write their own metrics, contributions approval, leaderboard
   snapshots or attendance.
 - New sign-ups can only create a `student` profile (self-promotion to
-  teacher/admin is rejected); staff accounts are created by an admin.
+  teacher/admin is rejected); staff accounts are created by an admin. The
+  admin-create branch in `match /users` is restricted to `teacher`/`admin`
+  roles scoped to the admin's own school, so it cannot be repurposed to grant a
+  higher role or attach a profile to another school.
 - The class list is readable by any signed-in user so a brand-new account can
   complete onboarding, but it contains only class names — never student data.
 - Storage rules restrict uploads to the signed-in user's own school path.
@@ -273,7 +307,8 @@ immutable caching for hashed assets. Set your project id in `.firebaserc` — se
 `scripts/smoke.ts` exercises the service layer end to end against the demo
 backend — seeding, sign-in for all three roles, grading, attempt submission,
 metrics, contributions, leaderboard snapshots and ranking, attendance
-aggregation, and mock-session checkpointing.
+aggregation, mock-session checkpointing, and teacher provisioning (validation,
+staff-id generation, account creation, duplicate rejection and the new login).
 
 ```bash
 npm run smoke

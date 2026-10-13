@@ -25,6 +25,14 @@ import {
 } from '@/services/leaderboard'
 import { markAttendance, summarise } from '@/services/attendance'
 import { awardContribution } from '@/services/contribution'
+import {
+  createTeacher,
+  emptyTeacherInput,
+  findTeacherDuplicates,
+  hasErrors,
+  nextTeacherId,
+  validateTeacherForm,
+} from '@/services/teachers'
 import type { TestAttempt, UserProfile } from '@/services/types'
 
 const failures: string[] = []
@@ -327,6 +335,77 @@ async function main() {
   const teacher = byRole('teacher')[0]
   const teacherSubjects = teacher.subjects ?? []
   check('teacher has subjects', teacherSubjects.length > 0, teacherSubjects.length)
+
+  console.log('\n-- teacher provisioning --')
+  const admin = byRole('admin')[0]
+  const smokeSubjectId = String((subjects[0] as { id: string }).id)
+  const smokeClassId = String((classes[0] as { id: string }).id)
+  const baseInput = {
+    ...emptyTeacherInput(),
+    name: 'Smoke Teacher',
+    email: 'smoke.teacher@abcpubschool.edu.in',
+    teacherId: '',
+    designation: 'Physics Teacher',
+    qualification: 'M.Sc. Physics',
+    joiningDate: '2026-04-01',
+    subjectIds: [smokeSubjectId],
+    classIds: [smokeClassId],
+    status: 'active' as const,
+    passwordMode: 'password' as const,
+    password: 'smokePass123',
+    confirmPassword: 'smokePass123',
+  }
+  check(
+    'teacher id increments per year',
+    nextTeacherId(['TCH-2026-0003'], 2026) === 'TCH-2026-0004',
+    nextTeacherId(['TCH-2026-0003'], 2026)
+  )
+  check(
+    'validation flags an incomplete form',
+    hasErrors(validateTeacherForm(emptyTeacherInput(), { requireCredentials: true }))
+  )
+  check(
+    'validation accepts a complete form',
+    !hasErrors(validateTeacherForm(baseInput, { requireCredentials: true }))
+  )
+
+  const created = await createTeacher({
+    schoolId: student.schoolId,
+    academicYear: '2026-27',
+    createdBy: admin.id,
+    input: baseInput,
+  })
+  check('teacher auth account created', Boolean(created.uid), created.uid)
+  check('teacher id auto-generated', /^TCH-\d{4}-\d{4}$/.test(created.teacherId), created.teacherId)
+  check('temporary password returned', created.temporaryPassword === 'smokePass123')
+
+  const teacherProfile = await db.get<UserProfile>(COLLECTIONS.users, created.uid)
+  check('teacher profile persisted with teacher role', teacherProfile?.role === 'teacher', teacherProfile?.role)
+  check('must-change-password flag set', teacherProfile?.mustChangePassword === true)
+  check('class assignment stored', (teacherProfile?.classIds ?? []).includes(smokeClassId))
+
+  const dup = await findTeacherDuplicates(student.schoolId, baseInput.email, baseInput.teacherId)
+  check('duplicate email detected', Boolean(dup.email))
+  check(
+    'duplicate create rejected',
+    await rejects(() =>
+      createTeacher({
+        schoolId: student.schoolId,
+        academicYear: '2026-27',
+        createdBy: admin.id,
+        input: baseInput,
+      })
+    )
+  )
+
+  await db.signIn(baseInput.email, 'smokePass123')
+  const smokeMe = (
+    await db.list<UserProfile>(COLLECTIONS.users, {
+      where: [{ field: 'email', op: '==', value: baseInput.email }],
+    })
+  )[0]
+  check('new teacher can sign in', smokeMe?.role === 'teacher' && smokeMe.id === created.uid, smokeMe?.role)
+  check('wrong password still rejected', await rejects(() => db.signIn(baseInput.email, 'nope')))
 
   console.log('')
   if (failures.length) {

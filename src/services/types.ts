@@ -53,11 +53,23 @@ export interface UserProfile {
 
   /* teacher / admin-only */
   subjects?: ID[]
+  /** Classes a teacher is assigned to (multi-select). */
+  classIds?: ID[]
   designation?: string
+  /** Human-readable staff id, e.g. `TCH-2026-0004`. Unique per school. */
+  teacherId?: string
+  qualification?: string
+  /** `yyyy-MM-dd`. */
+  joiningDate?: string
+  /** Forces a password change on first sign-in (admin-created accounts). */
+  mustChangePassword?: boolean
+  /** uid of the administrator who created the account. */
+  createdBy?: ID
 
   /** Generic public-safe extras. */
   bio?: string
   phone?: string
+  address?: string
   isActive: boolean
   isDemo?: boolean
   createdAt: TimestampValue

@@ -17,8 +17,10 @@ import {
   type QueryConstraint,
   type WhereFilterOp,
 } from 'firebase/firestore'
+import { deleteApp, initializeApp } from 'firebase/app'
 import {
   createUserWithEmailAndPassword,
+  getAuth,
   GoogleAuthProvider,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -36,7 +38,7 @@ import {
   uploadBytes,
 } from 'firebase/storage'
 
-import { auth, db, storage } from '@/firebase/config'
+import { auth, db, storage, firebaseConfig } from '@/firebase/config'
 import {
   applyLocal,
   type AuthUser,
@@ -243,6 +245,44 @@ export const firestoreBackend: Db = {
     const { user } = await createUserWithEmailAndPassword(auth!, email, password)
     await updateProfile(user, { displayName })
     return toAuthUser(user)
+  },
+
+  /**
+   * Creates another person's Firebase Auth account **without** replacing the
+   * administrator's session. A throwaway secondary Firebase app is used, so the
+   * new account's `signInWithEmailAndPassword` lands on that app only. The
+   * secondary app is deleted immediately afterwards.
+   */
+  async createStaffAccount({ email, displayName, password }) {
+    assertReady()
+    const secret = password && password.length >= 6 ? password : `Cx-${crypto.randomUUID()}`
+    const secondaryName = `campusx-staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const secondary = initializeApp(firebaseConfig, secondaryName)
+    try {
+      const secondaryAuth = getAuth(secondary)
+      const { user } = await createUserWithEmailAndPassword(
+        secondaryAuth,
+        email.trim().toLowerCase(),
+        secret
+      )
+      await updateProfile(user, { displayName })
+      await fbSignOut(secondaryAuth)
+      return { uid: user.uid, inviteSent: !password }
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      if (code === 'auth/email-already-in-use') {
+        throw new Error('An account with this email address already exists.')
+      }
+      if (code === 'auth/invalid-email') {
+        throw new Error('That email address is not valid.')
+      }
+      if (code === 'auth/weak-password') {
+        throw new Error('The password is too weak. Use at least 6 characters.')
+      }
+      throw error
+    } finally {
+      await deleteApp(secondary).catch(() => undefined)
+    }
   },
 
   async signInWithGoogle() {

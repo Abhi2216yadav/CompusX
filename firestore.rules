@@ -89,13 +89,22 @@ service cloud.firestore {
       // validated against the schools collection, and the class against the
       // class list, so a forged schoolId cannot attach a profile to a school
       // that does not exist.
-      allow create: if isSelf(userId)
-                    && request.resource.data.role == 'student'
-                    && request.resource.data.isActive == true
-                    && request.resource.data.schoolId is string
-                    && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId))
-                    && request.resource.data.classId is string
-                    && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId));
+      //
+      // An administrator may also create a staff profile (a teacher or another
+      // admin) for someone whose Firebase Auth account they just provisioned.
+      // The new profile must belong to the admin's own school, and the role is
+      // restricted so a staff profile cannot be used to grant a higher role.
+      allow create: if (isSelf(userId)
+                        && request.resource.data.role == 'student'
+                        && request.resource.data.isActive == true
+                        && request.resource.data.schoolId is string
+                        && exists(/databases/$(database)/documents/schools/$(request.resource.data.schoolId))
+                        && request.resource.data.classId is string
+                        && exists(/databases/$(database)/documents/classes/$(request.resource.data.classId)))
+                    || (isAdmin()
+                        && request.resource.data.schoolId == caller().data.schoolId
+                        && request.resource.data.role in ['teacher', 'admin']
+                        && request.resource.data.isActive is bool);
 
       // A user may edit their own safe fields. Role, schoolId and isActive are
       // admin-only, so nobody can promote themselves.
